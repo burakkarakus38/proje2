@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────
+enum UserRole {
+  ADMIN
+  USER
+  PROVIDER
+}
+
+enum ReservationStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  WALLET
+}
+
+enum VehicleType {
+  CAR
+  SUV
+  MOTORCYCLE
+  TRUCK
+}
+
+// ── Refresh Token Model ──────────────────────────────────────────
+// Per backend-rules.md: Refresh tokens must be stored in database for revocation capability
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  token     String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ── User Model ──────────────────────────────────────────────────
+// Per backend-rules.md: Passwords must be hashed with bcrypt before storing
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  gsm          String    @unique
+  password     String    @db.Text
+  name         String?
+  role         UserRole  @default(USER)
+  isVerified   Boolean   @default(false)
+  otpCode      String?
+  otpExpiresAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+  vehicles      Vehicle[]
+  parkingLots   ParkingLot[]
+  reservations  Reservation[]
+  payments      Payment[]
+  parkingSessions ParkingSession[]
+
+  @@map("users")
+}
+
+// ── Vehicle Model ────────────────────────────────────────────────
+model Vehicle {
+  id          Int       @id @default(autoincrement())
+  plate       String    @unique
+  type        VehicleType
+  brand       String
+  model       String
+  ownerId     Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  parkingSessions ParkingSession[]
+
+  @@map("vehicles")
+  @@index([ownerId])
+}
+
+// ── ParkingLot Model ─────────────────────────────────────────────
+model ParkingLot {
+  id           Int       @id @default(autoincrement())
+  name         String
+  latitude     Float
+  longitude    Float
+  address      String
+  workingHours String
+  capacity     Int
+  currentOccupancy Int @default(0)
+  hourlyRate   Float
+  providerId   Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  provider     User      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  reservations  Reservation[]
+  parkingSessions ParkingSession[]
+
+  @@map("parking_lots")
+  @@index([providerId])
+}
+
+// ── Reservation Model ────────────────────────────────────────────
+model Reservation {
+  id          Int       @id @default(autoincrement())
+  vehicleId   Int
+  parkingLotId Int
+  userId      Int
+  startTime   DateTime
+  endTime     DateTime
+  totalPrice  Float
+  status      ReservationStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  parkingLot  ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parkingSession ParkingSession?
+  payments    Payment[]
+
+  @@map("reservations")
+  @@index([vehicleId])
+  @@index([parkingLotId])
+  @@index([userId])
+}
+
+// ── ParkingSession Model ─────────────────────────────────────────
+model ParkingSession {
+  id            Int       @id @default(autoincrement())
+  reservationId Int       @unique
+  vehicleId     Int
+  parkingLotId  Int
+  userId        Int
+  entryTime     DateTime  @default(now())
+  exitTime      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  vehicle       Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  parkingLot    ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("parking_sessions")
+  @@index([reservationId])
+  @@index([vehicleId])
+  @@index([parkingLotId])
+  @@index([userId])
+}
+
+// ── Payment Model ────────────────────────────────────────────────
+model Payment {
+  id              Int       @id @default(autoincrement())
+  reservationId   Int
+  userId          Int
+  amount          Float
+  paymentMethod   PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+  @@index([reservationId])
+  @@index([userId])
+}

@@ -1,0 +1,24 @@
+{
+  "name": "veritabani-paketi",
+  "version": "1.0.0",
+  "description": "Turkcell CodeNight 2026 - Veritabanı katmanı (Prisma + PostgreSQL)",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "npx ts-node prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "prisma": "^6.19.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "prisma": {
+    "seed": "npx ts-node prisma/seed.ts"
+  }
+}
