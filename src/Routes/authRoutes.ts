@@ -212,7 +212,6 @@ router.post('/login', validateRequest(loginSchema), login);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/StandardResponse'
- *     responses:
  *       500:
  *         description: Sunucu hatası
  *         content:
@@ -316,7 +315,7 @@ router.post('/refresh-token', validateRequest(refreshTokenSchema), refreshToken)
  *             example:
  *               success: false
  *               data: null
- *               message: Kimlik doğrulama hatası: JWT token bulunamadı veya geçersiz format.
+ *               message: "Kimlik doğrulama hatası: JWT token bulunamadı veya geçersiz format."
  *               timestamp: "2026-04-15T16:33:00.000Z"
  *       500:
  *         description: Sunucu hatası

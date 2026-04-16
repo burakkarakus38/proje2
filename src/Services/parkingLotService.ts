@@ -32,6 +32,39 @@ export interface NearbyParkingLotResponse extends ParkingLotDetailResponse {
 export class ParkingLotService {
   private parkingLotRepository: ParkingLotRepository;
 
+  /**
+   * Get all parking lots in the system
+   */
+  async getAllParkingLots(): Promise<ParkingLotDetailResponse[]> {
+    try {
+      const lots = await this.parkingLotRepository.findAll();
+      const enrichedLots: ParkingLotDetailResponse[] = [];
+
+      for (const lot of lots) {
+        const availableCapacity = await this.parkingLotRepository.getAvailableCapacity(lot.id);
+        enrichedLots.push({
+          id: lot.id,
+          name: lot.name,
+          latitude: lot.latitude,
+          longitude: lot.longitude,
+          address: lot.address,
+          workingHours: lot.workingHours,
+          currentOccupancy: lot.currentOccupancy,
+          capacity: lot.capacity,
+          hourlyRate: lot.hourlyRate,
+          availableCapacity,
+          occupancyStatus: this.computeOccupancyStatus(lot.capacity, availableCapacity),
+          providerId: lot.providerId,
+        });
+      }
+      return enrichedLots;
+    } catch (error) {
+      Logger.error('Error fetching all parking lots', error as Error);
+      throw error;
+    }
+  }
+
+
   constructor() {
     this.parkingLotRepository = new ParkingLotRepository();
   }

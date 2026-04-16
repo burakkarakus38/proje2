@@ -149,6 +149,9 @@ export const parkingLotApi = {
   getParkingLot: (parkingLotId: number) =>
     api.get<ApiResponse<ParkingLot>>(`/parking/${parkingLotId}`),
 
+  getAll: () =>
+    api.get<ApiResponse<ParkingLot[]>>("/parking"),
+
   findNearby: (latitude: number, longitude: number, radiusKm?: number) => {
     const params = new URLSearchParams();
     params.append("latitude", latitude.toString());

@@ -12,6 +12,33 @@ import { sendSuccess } from '../Utils/responseHelper';
 const parkingLotService = new ParkingLotService();
 
 /**
+ * Get all parking lots
+ * @route GET /api/parking
+ * @returns Array of all parking lots
+ */
+export const getAllParkingLots = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const result = await parkingLotService.getAllParkingLots();
+
+    sendSuccess(
+      res,
+      result,
+      result.length > 0
+        ? 'Tüm otoparklar listelendi.'
+        : 'Sistemde kayıtlı otopark bulunamadı.',
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+/**
  * Find nearby parking lots
  * @route GET /api/parking/nearby?latitude=40.1&longitude=29.0&radiusKm=5
  * @param latitude User's latitude

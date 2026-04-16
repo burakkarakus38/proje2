@@ -21,6 +21,19 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/parking:
+ *   get:
+ *     summary: Tüm otoparkları listele
+ *     description: Sistemdeki tüm otoparkların listesini getirir
+ *     tags: [Parking]
+ *     responses:
+ *       200:
+ *         description: Başarılı
+ */
+router.get('/', parkingLotController.getAllParkingLots);
+
+/**
+ * @swagger
  * /api/parking/nearby:
  *   get:
  *     summary: Yakında bulunan otoparkları bul

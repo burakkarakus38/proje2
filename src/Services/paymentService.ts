@@ -8,6 +8,9 @@ import { PaymentRepository } from '../Repositories/PaymentRepository';
 import { ReservationRepository } from '../Repositories/ReservationRepository';
 import { AppError } from '../Utils/AppError';
 import { Logger } from '../Utils/logger';
+import { PaycellService } from './paycellService';
+
+const paycellService = new PaycellService();
 
 export interface PaymentResponse {
   id: number;
@@ -51,6 +54,43 @@ export class PaymentService {
   constructor() {
     this.paymentRepository = new PaymentRepository();
     this.reservationRepository = new ReservationRepository();
+  }
+
+  /**
+   * Process payment via Paycell Mobil Ödeme (Direct Carrier Billing)
+   */
+  async processPaycellPayment(
+    paymentId: number,
+    msisdn: string
+  ): Promise<PaymentResponse> {
+    try {
+      const payment = await this.paymentRepository.findById(paymentId);
+      if (!payment) throw new AppError('Ödeme kaydı bulunamadı.', 404);
+      if (payment.status !== 'PENDING') throw new AppError('Ödeme zaten işlenmiş.', 400);
+
+      const paycellResult = await paycellService.processPayment({
+        msisdn,
+        amount: payment.amount,
+        orderId: `ORD-${payment.id}`,
+        description: 'ParkET Otopark Rezervasyonu'
+      });
+
+      const updatedPayment = await this.paymentRepository.update(paymentId, {
+        status: paycellResult.status === 'SUCCESS' ? 'COMPLETED' : 'FAILED',
+        transactionId: paycellResult.transactionId,
+        paymentMethod: 'PAYCELL'
+      });
+
+      if (paycellResult.status === 'FAILED') {
+        throw new AppError(`Paycell Ödeme Hatası: ${paycellResult.resultDescription}`, 402);
+      }
+
+      return this.mapToResponse(updatedPayment);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      Logger.error('Error in Paycell payment flow', error as Error);
+      throw new AppError('Paycell işlemi sırasında bir hata oluştu.', 500);
+    }
   }
 
   /**

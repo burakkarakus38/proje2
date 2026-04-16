@@ -20,6 +20,7 @@ export interface PaymentCreateData {
 export interface PaymentUpdateData {
   status?: PaymentStatus;
   transactionId?: string;
+  paymentMethod?: PaymentMethod;
 }
 
 export interface Payment {

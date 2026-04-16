@@ -142,7 +142,7 @@ export interface ReservationResponse {
 }
 
 // ── Parking Session ────────────────────────────────────────────────
-export type PaymentMethod = "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "WALLET";
+export type PaymentMethod = "CREDIT_CARD" | "DEBIT_CARD" | "BANK_TRANSFER" | "WALLET" | "PAYCELL";
 
 export interface ParkingSession {
   id: number;

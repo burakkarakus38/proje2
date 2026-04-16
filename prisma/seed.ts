@@ -29,11 +29,18 @@ async function main() {
 
   const testUsers = [
     {
-      name: 'Otopark Sağlayıcı (Admin)',
+      name: 'Burak (Sistem Admini)',
       email: 'admin@parket.com',
+      gsm: '5550000000',
+      password: 'SecurePassword123',
+      role: 'ADMIN' as any,
+    },
+    {
+      name: 'Mehmet Yılmaz (Otopark İşletmecisi)',
+      email: 'operator@parket.com',
       gsm: '5550000001',
       password: 'SecurePassword123',
-      role: 'PROVIDER' as any,
+      role: 'OPERATOR' as any,
     },
     {
       name: 'Sürücü Ahmet',
@@ -70,8 +77,9 @@ async function main() {
     console.log(`✅ User oluşturuldu: ${user.email} (ID: ${user.id}, Role: ${user.role})`);
   }
 
-  const providerId = createdUsers[0].id;
-  const driverId = createdUsers[1].id;
+  const adminId = createdUsers[0].id;
+  const operatorId = createdUsers[1].id;
+  const driverId = createdUsers[2].id;
 
   // Create vehicles for drivers
   console.log('🚗 Araçlar oluşturuluyor...');
@@ -88,7 +96,7 @@ async function main() {
       type: 'SUV',
       brand: 'Honda',
       model: 'CR-V',
-      ownerId: createdUsers[2].id,
+      ownerId: createdUsers[3].id,
     },
   ];
 
@@ -111,7 +119,7 @@ async function main() {
       capacity: 150,
       currentOccupancy: 30,
       hourlyRate: 30.0,
-      providerId: providerId,
+      providerId: operatorId,
     },
     {
       name: 'Şişli AVM Otoparkı',
@@ -122,7 +130,7 @@ async function main() {
       capacity: 500,
       currentOccupancy: 100,
       hourlyRate: 20.0,
-      providerId: providerId,
+      providerId: operatorId,
     },
     {
       name: 'Kadıköy Sahil Otoparkı',
@@ -133,7 +141,7 @@ async function main() {
       capacity: 200,
       currentOccupancy: 50,
       hourlyRate: 40.0,
-      providerId: providerId,
+      providerId: operatorId,
     },
     {
       name: 'Beşiktaş Meydan Otoparkı',
@@ -144,7 +152,7 @@ async function main() {
       capacity: 100,
       currentOccupancy: 20,
       hourlyRate: 50.0,
-      providerId: providerId,
+      providerId: operatorId,
     },
     {
       name: 'Bakırköy Marina Otoparkı',
@@ -155,7 +163,7 @@ async function main() {
       capacity: 300,
       currentOccupancy: 60,
       hourlyRate: 25.0,
-      providerId: providerId,
+      providerId: operatorId,
     },
   ];
 
@@ -167,6 +175,12 @@ async function main() {
   }
 
   console.log('\n✨ Seed işlemi başarıyla tamamlandı!\n');
+  console.log('--------------------------------------------------');
+  console.log('Giriş Bilgileri:');
+  console.log('ADMIN: admin@parket.com / SecurePassword123');
+  console.log('OPERATOR: operator@parket.com / SecurePassword123');
+  console.log('DRIVER: ahmet@example.com / SecurePassword456 (veya GSM: 5550000002 - OTP: 1234)');
+  console.log('--------------------------------------------------');
 }
 
 main()

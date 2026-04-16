@@ -8,8 +8,9 @@ import MaterialIcon from "@/components/ui/MaterialIcon";
 import ReservationForm from "@/components/reservation/ReservationForm";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@/types";
+import { parkingLotApi } from "@/lib/api";
 
-// ─── Dummy Data ────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type SpotStatus = "empty" | "reserved" | "occupied";
 
@@ -20,7 +21,7 @@ interface ParkingSpot {
 }
 
 interface ParkingLot {
-  id: string;
+  id: number;
   name: string;
   address: string;
   distance: string;
@@ -36,12 +37,14 @@ interface ParkingLot {
   isOpen: boolean;
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
 function generateSpots(total: number, empty: number, reserved: number): ParkingSpot[] {
   const spots: ParkingSpot[] = [];
   const statuses: SpotStatus[] = [
     ...Array(empty).fill("empty"),
     ...Array(reserved).fill("reserved"),
-    ...Array(total - empty - reserved).fill("occupied"),
+    ...Array(Math.max(0, total - empty - reserved)).fill("occupied"),
   ];
   // shuffle
   for (let i = statuses.length - 1; i > 0; i--) {
@@ -49,14 +52,14 @@ function generateSpots(total: number, empty: number, reserved: number): ParkingS
     [statuses[i], statuses[j]] = [statuses[j], statuses[i]];
   }
   for (let i = 0; i < total; i++) {
-    spots.push({ id: `spot-${i}`, status: statuses[i], number: String(i + 1).padStart(2, "0") });
+    spots.push({ id: `spot-${i}`, status: statuses[i] || "occupied", number: String(i + 1).padStart(2, "0") });
   }
   return spots;
 }
 
 const DUMMY_LOTS: ParkingLot[] = [
   {
-    id: "lot-1",
+    id: 1,
     name: "Taksim Merkez Otopark",
     address: "Taksim Meydanı Altı, Beyoğlu, İstanbul",
     distance: "0.3 km",
@@ -72,7 +75,7 @@ const DUMMY_LOTS: ParkingLot[] = [
     spots: generateSpots(48, 12, 8),
   },
   {
-    id: "lot-2",
+    id: 2,
     name: "Kadıköy İskele Parkı",
     address: "Rıhtım Caddesi No:14, Kadıköy, İstanbul",
     distance: "1.1 km",
@@ -86,54 +89,6 @@ const DUMMY_LOTS: ParkingLot[] = [
     open24h: false,
     isOpen: true,
     spots: generateSpots(36, 2, 5),
-  },
-  {
-    id: "lot-3",
-    name: "Beşiktaş Çarşı Otoparkı",
-    address: "Sinanpaşa Mah. Çarşı Cd., Beşiktaş, İstanbul",
-    distance: "2.4 km",
-    rating: 4.5,
-    pricePerHour: 35,
-    totalSpots: 60,
-    emptySpots: 22,
-    reservedSpots: 11,
-    occupiedSpots: 27,
-    features: ["Kapalı", "7/24", "Yıkama", "Şarj"],
-    open24h: true,
-    isOpen: true,
-    spots: generateSpots(60, 22, 11),
-  },
-  {
-    id: "lot-4",
-    name: "Üsküdar Meydan Park",
-    address: "Hakimiyet-i Milliye Cd. No:2, Üsküdar, İstanbul",
-    distance: "3.8 km",
-    rating: 3.9,
-    pricePerHour: 20,
-    totalSpots: 24,
-    emptySpots: 0,
-    reservedSpots: 3,
-    occupiedSpots: 21,
-    features: ["Açık", "07:00–22:00"],
-    open24h: false,
-    isOpen: true,
-    spots: generateSpots(24, 0, 3),
-  },
-  {
-    id: "lot-5",
-    name: "Şişli Mecidiyeköy AVM Altı",
-    address: "Büyükdere Cad. No:185, Şişli, İstanbul",
-    distance: "4.2 km",
-    rating: 4.6,
-    pricePerHour: 45,
-    totalSpots: 80,
-    emptySpots: 35,
-    reservedSpots: 14,
-    occupiedSpots: 31,
-    features: ["Kapalı", "7/24", "Şarj", "Engelli", "Kamera"],
-    open24h: true,
-    isOpen: true,
-    spots: generateSpots(80, 35, 14),
   },
 ];
 
@@ -168,11 +123,11 @@ function OccupancyBar({ lot }: { lot: ParkingLot }) {
   );
 }
 
-function ParkingGrid({ spots }: { spots: ParkingSpot[] }) {
+function ParkingGrid({ spots, onSpotClick }: { spots: ParkingSpot[]; onSpotClick?: (id: string) => void }) {
   const spotColors: Record<SpotStatus, string> = {
-    empty: "bg-green-100 border-green-400 text-green-700 hover:bg-green-200",
+    empty: "bg-green-100 border-green-400 text-green-700 hover:bg-green-200 hover:scale-105 shadow-sm",
     reserved: "bg-yellow-100 border-yellow-400 text-yellow-700 hover:bg-yellow-200",
-    occupied: "bg-red-100 border-red-400 text-red-500 cursor-not-allowed",
+    occupied: "bg-red-100 border-red-400 text-red-500 cursor-not-allowed opacity-60",
   };
   const spotIcons: Record<SpotStatus, string> = {
     empty: "local_parking",
@@ -185,7 +140,8 @@ function ParkingGrid({ spots }: { spots: ParkingSpot[] }) {
       {spots.map((spot) => (
         <div
           key={spot.id}
-          title={`${spot.number} – ${spot.status === "empty" ? "Boş" : spot.status === "reserved" ? "Rezerve" : "Dolu"}`}
+          onClick={() => spot.status === "empty" && onSpotClick?.(spot.id)}
+          title={`${spot.number} – ${spot.status === "empty" ? "Boş (Rezervasyon İçin Tıklayın)" : spot.status === "reserved" ? "Rezerve" : "Dolu"}`}
           className={`border-2 rounded-lg p-1.5 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer select-none ${spotColors[spot.status]}`}
           style={{ minHeight: 52 }}
         >
@@ -227,7 +183,6 @@ function LotCard({ lot, onSelect, selected }: { lot: ParkingLot; onSelect: () =>
         selected ? "border-primary bg-primary/5 shadow-md" : `${statusColor} hover:shadow-md`
       }`}
     >
-      {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -245,44 +200,12 @@ function LotCard({ lot, onSelect, selected }: { lot: ParkingLot; onSelect: () =>
         <div className="shrink-0 text-right">
           <p className="text-xl font-extrabold text-primary font-headline">₺{lot.pricePerHour}</p>
           <p className="text-[10px] text-on-surface-variant">/saat</p>
-          <p className="text-xs text-outline mt-1 flex items-center gap-0.5 justify-end">
-            <MaterialIcon name="near_me" className="text-xs" />
-            {lot.distance}
-          </p>
         </div>
       </div>
-
-      {/* Doluluk bar */}
       <OccupancyBar lot={lot} />
-
-      {/* Stats */}
-      <div className="flex items-center justify-between mt-3">
-        <div className="flex items-center gap-3 text-xs">
-          <span className="flex items-center gap-1 text-green-600 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />
-            {lot.emptySpots} boş
-          </span>
-          <span className="flex items-center gap-1 text-yellow-600 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" />
-            {lot.reservedSpots} rezerve
-          </span>
-          <span className="flex items-center gap-1 text-red-500 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
-            {lot.occupiedSpots} dolu
-          </span>
-        </div>
-        <span className="text-xs text-on-surface-variant font-medium bg-surface-container px-2 py-1 rounded-lg">
-          %{emptyPct} boş
-        </span>
-      </div>
-
-      {/* Features */}
-      <div className="flex flex-wrap gap-1.5 mt-3">
-        {lot.features.map((f) => (
-          <span key={f} className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-full">
-            {f}
-          </span>
-        ))}
+      <div className="flex items-center justify-between mt-3 text-[10px] font-semibold">
+        <span className="text-green-600">{lot.emptySpots} boş</span>
+        <span className="text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-lg">%{emptyPct} müsait</span>
       </div>
     </div>
   );
@@ -303,10 +226,50 @@ export default function DriverDashboard() {
   const router = useRouter();
   const { logout, getCurrentUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
+  const [lots, setLots] = useState<ParkingLot[]>(DUMMY_LOTS);
   const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(DUMMY_LOTS[0]);
   const [activeTab, setActiveTab] = useState<"list" | "grid">("list");
   const [sortBy, setSortBy] = useState<"distance" | "price" | "empty">("distance");
   const [showReservation, setShowReservation] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchLots = async () => {
+    try {
+      const { data } = await parkingLotApi.getAll();
+      if (data?.success && data.data && (data.data as any[]).length > 0) {
+        const transformed: ParkingLot[] = (data.data as any[]).map((lot: any) => ({
+          id: lot.id,
+          name: lot.name,
+          address: lot.address || "Adres bilgisi yok",
+          distance: "0.0 km",
+          rating: 4.5,
+          pricePerHour: lot.hourlyRate,
+          totalSpots: lot.capacity,
+          emptySpots: lot.availableCapacity || (lot.capacity - lot.currentOccupancy),
+          reservedSpots: Math.floor(lot.capacity * 0.1),
+          occupiedSpots: lot.currentOccupancy,
+          features: ["Real-time", lot.workingHours || "24/7"],
+          open24h: lot.workingHours?.includes("24/7") || true,
+          isOpen: true,
+          spots: generateSpots(
+            lot.capacity,
+            lot.availableCapacity || (lot.capacity - lot.currentOccupancy),
+            Math.floor(lot.capacity * 0.1)
+          ),
+        }));
+        setLots(transformed);
+        setSelectedLot(transformed[0]);
+      }
+    } catch (err) {
+      console.error("Fetch lots error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLots();
+  }, []);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -317,15 +280,11 @@ export default function DriverDashboard() {
 
   if (!user) return null;
 
-  const sortedLots = [...DUMMY_LOTS].sort((a, b) => {
+  const sortedLots = [...lots].sort((a, b) => {
     if (sortBy === "price") return a.pricePerHour - b.pricePerHour;
     if (sortBy === "empty") return b.emptySpots - a.emptySpots;
-    return parseFloat(a.distance) - parseFloat(b.distance);
+    return 0;
   });
-
-  const totalEmpty = DUMMY_LOTS.reduce((s, l) => s + l.emptySpots, 0);
-  const totalReserved = DUMMY_LOTS.reduce((s, l) => s + l.reservedSpots, 0);
-  const totalOccupied = DUMMY_LOTS.reduce((s, l) => s + l.occupiedSpots, 0);
 
   return (
     <>
@@ -333,71 +292,39 @@ export default function DriverDashboard() {
       <main className="flex-grow portal-gradient pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
 
-          {/* ── Welcome Banner ─────────────────────────────────────── */}
+          {/* Banner */}
           <div className="relative overflow-hidden bg-primary-container rounded-2xl p-6 md:p-8 text-white mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            {/* decorative circle */}
-            <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5" />
-            <div className="absolute -right-4 -bottom-12 w-40 h-40 rounded-full bg-white/5" />
-
             <div className="relative z-10">
               <p className="text-on-primary-container/70 text-xs font-label uppercase tracking-widest mb-1">Şoför Paneli</p>
-              <h1 className="text-2xl md:text-3xl font-extrabold font-headline">
-                Hoş Geldiniz, {user.name || user.email}! 👋
-              </h1>
+              <h1 className="text-2xl md:text-3xl font-extrabold font-headline">Hoş Geldiniz, {user.name || user.email}! 👋</h1>
               <p className="text-on-primary-container/70 text-sm mt-1">{user.email}</p>
-              {/* Araç bilgisi varsa göster */}
               {user.vehiclePlate && (
                 <div className="mt-3 inline-flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/20">
                   <MaterialIcon name="directions_car" className="text-xl" />
                   <span className="font-mono font-bold tracking-widest text-sm">{user.vehiclePlate}</span>
-                  {user.vehicleBrand && <span className="text-white/70 text-sm">· {user.vehicleBrand} {user.vehicleModel}</span>}
                 </div>
               )}
             </div>
-
-            {/* Quick stats */}
-            <div className="relative z-10 flex gap-3 flex-wrap">
-              <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-center min-w-[80px]">
-                <p className="text-2xl font-extrabold font-headline text-green-300">{totalEmpty}</p>
-                <p className="text-xs text-white/70 mt-0.5">Boş Alan</p>
-              </div>
-              <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-center min-w-[80px]">
-                <p className="text-2xl font-extrabold font-headline text-yellow-300">{totalReserved}</p>
-                <p className="text-xs text-white/70 mt-0.5">Rezerve</p>
-              </div>
-              <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-center min-w-[80px]">
-                <p className="text-2xl font-extrabold font-headline text-red-300">{totalOccupied}</p>
-                <p className="text-xs text-white/70 mt-0.5">Dolu</p>
+            <div className="relative z-10 flex gap-3">
+              <div className="bg-white/10 rounded-xl px-4 py-3 text-center min-w-[80px]">
+                <p className="text-2xl font-extrabold text-green-300">{lots.reduce((s,l) => s+l.emptySpots, 0)}</p>
+                <p className="text-[10px] text-white/70">Toplam Boş</p>
               </div>
             </div>
           </div>
 
-          {/* ── Main Grid ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-
-            {/* Left: Lot List */}
+            {/* Left: List */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Controls */}
-              <div className="flex items-center justify-between gap-3 flex-wrap bg-white rounded-xl p-3 border border-outline-variant/20 shadow-sm">
-                <p className="text-sm font-semibold text-on-surface font-headline">
-                  Yakın Otoparklar
-                  <span className="ml-2 text-xs text-on-surface-variant font-label font-normal">({DUMMY_LOTS.length} otopark)</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-on-surface-variant">Sırala:</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                    className="text-xs border border-outline-variant rounded-lg px-2 py-1.5 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/40 bg-white"
-                  >
-                    <option value="distance">Mesafe</option>
-                    <option value="price">Fiyat</option>
-                    <option value="empty">Boş Alan</option>
-                  </select>
-                </div>
+              <div className="bg-white rounded-xl p-3 border border-outline-variant/20 shadow-sm flex items-center justify-between">
+                <p className="text-sm font-semibold">Otoparklar ({lots.length})</p>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="text-xs border rounded-lg px-2 py-1">
+                  <option value="distance">Mesafe</option>
+                  <option value="price">Fiyat</option>
+                  <option value="empty">Müsaitlik</option>
+                </select>
               </div>
 
-              {/* Lot Cards */}
               <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1 scrollbar-thin">
                 {sortedLots.map((lot) => (
                   <LotCard
@@ -410,144 +337,64 @@ export default function DriverDashboard() {
               </div>
             </div>
 
-            {/* Right: Detail / Grid */}
+            {/* Right: Map/Grid */}
             <div className="lg:col-span-3">
               {selectedLot ? (
-                <div className="bg-white rounded-2xl border border-outline-variant/20 shadow-sm overflow-hidden">
-                  {/* Lot Header */}
+                <div className="bg-white rounded-2xl border border-outline-variant/20 shadow-sm overflow-hidden min-h-[500px]">
                   <div className="bg-gradient-to-r from-primary-container to-primary p-5 text-white">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs text-white/60 uppercase tracking-wider mb-1">Seçili Otopark</p>
-                        <h2 className="text-xl font-extrabold font-headline">{selectedLot.name}</h2>
-                        <p className="text-white/70 text-sm mt-1 flex items-center gap-1">
-                          <MaterialIcon name="location_on" className="text-sm" />
-                          {selectedLot.address}
-                        </p>
+                    <h2 className="text-xl font-extrabold font-headline">{selectedLot.name}</h2>
+                    <p className="text-white/70 text-sm mt-1">{selectedLot.address}</p>
+                    <div className="mt-4 flex gap-4">
+                      <div className="bg-green-500/20 border border-green-400/30 rounded-xl px-4 py-2 text-center flex-1">
+                        <p className="text-xl font-bold text-green-200">{selectedLot.emptySpots}</p>
+                        <p className="text-[10px] text-white/60">Boş Yer</p>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-3xl font-extrabold font-headline">₺{selectedLot.pricePerHour}</p>
-                        <p className="text-white/60 text-xs">/saat</p>
+                      <div className="bg-white/10 rounded-xl px-4 py-2 text-center flex-1">
+                        <p className="text-xl font-bold">₺{selectedLot.pricePerHour}</p>
+                        <p className="text-[10px] text-white/60">Saat Ücreti</p>
                       </div>
-                    </div>
-
-                    {/* Summary status strip */}
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      {[
-                        { label: "Boş", value: selectedLot.emptySpots, bg: "bg-green-500/20 border-green-400/30", text: "text-green-200" },
-                        { label: "Rezerve", value: selectedLot.reservedSpots, bg: "bg-yellow-400/20 border-yellow-400/30", text: "text-yellow-200" },
-                        { label: "Dolu", value: selectedLot.occupiedSpots, bg: "bg-red-500/20 border-red-400/30", text: "text-red-200" },
-                      ].map((s) => (
-                        <div key={s.label} className={`${s.bg} border rounded-xl p-2 text-center`}>
-                          <p className={`text-xl font-extrabold ${s.text} font-headline`}>{s.value}</p>
-                          <p className="text-white/60 text-xs">{s.label}</p>
-                        </div>
-                      ))}
                     </div>
                   </div>
 
-                  {/* Tabs */}
-                  <div className="flex border-b border-outline-variant/20">
+                  <div className="flex border-b">
                     {(["list", "grid"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`flex-1 py-3 text-sm font-medium font-headline transition-colors flex items-center justify-center gap-2 ${
-                          activeTab === tab
-                            ? "text-primary border-b-2 border-primary bg-primary/5"
-                            : "text-on-surface-variant hover:text-on-surface"
-                        }`}
-                      >
-                        <MaterialIcon name={tab === "list" ? "info" : "grid_view"} className="text-base" />
-                        {tab === "list" ? "Bilgiler" : "Park Haritası"}
+                      <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 text-sm font-headline ${activeTab === tab ? "text-primary border-b-2 border-primary bg-primary/5" : "text-on-surface-variant hover:bg-gray-50"}`}>
+                        {tab === "list" ? "Otopark Bilgisi" : "Park Haritası (Tıkla & Rezerv Et)"}
                       </button>
                     ))}
                   </div>
 
                   <div className="p-5">
                     {activeTab === "list" ? (
-                      /* Info Tab */
-                      <div className="space-y-5">
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-2">Özellikler</p>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedLot.features.map((f) => (
-                              <span key={f} className="flex items-center gap-1 bg-primary/10 text-primary text-sm px-3 py-1 rounded-full font-medium">
-                                <MaterialIcon name="check" className="text-sm" />
-                                {f}
-                              </span>
-                            ))}
-                          </div>
+                      <div className="space-y-6">
+                        <div className="flex flex-wrap gap-2">
+                          {selectedLot.features.map(f => <span key={f} className="text-xs bg-gray-100 px-3 py-1 rounded-full">{f}</span>)}
                         </div>
-
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-2">Doluluk Durumu</p>
-                          <OccupancyBar lot={selectedLot} />
-                          <div className="flex justify-between mt-2 text-xs text-on-surface-variant">
-                            <span>%{Math.round((selectedLot.occupiedSpots / selectedLot.totalSpots) * 100)} dolu</span>
-                            <span>Toplam {selectedLot.totalSpots} yer</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-2">Fiyatlandırma</p>
-                          <div className="grid grid-cols-2 gap-3">
-                            {[
-                              { label: "Saatlik", price: selectedLot.pricePerHour },
-                              { label: "Günlük (8 saat)", price: selectedLot.pricePerHour * 8 * 0.8 },
-                              { label: "Aylık (tahmini)", price: selectedLot.pricePerHour * 8 * 22 * 0.6 },
-                              { label: "30 Dakika", price: Math.round(selectedLot.pricePerHour / 2) },
-                            ].map((p) => (
-                              <div key={p.label} className="bg-surface-container rounded-xl p-3 flex items-center justify-between">
-                                <span className="text-xs text-on-surface-variant">{p.label}</span>
-                                <span className="font-bold text-primary text-sm font-headline">₺{Math.round(p.price)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowReservation(true)}
-                          className="w-full bg-primary text-white py-3 rounded-xl font-semibold font-headline tracking-wide hover:bg-primary/90 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
-                        >
-                          <MaterialIcon name="bookmark_added" className="text-xl" />
-                          Rezervasyon Yap
+                        <button onClick={() => setShowReservation(true)} className="w-full bg-primary text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-primary/20 transition-all">
+                          Hemen Rezervasyon Yap
                         </button>
                       </div>
                     ) : (
-                      /* Grid Tab */
                       <div className="space-y-4">
-                        {/* Legend */}
-                        <div className="flex items-center gap-4 flex-wrap bg-surface-container rounded-xl px-4 py-3">
-                          <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mr-1">Açıklama:</p>
-                          <LegendItem color="bg-green-100 border-green-400" label="Boş" />
-                          <LegendItem color="bg-yellow-100 border-yellow-400" label="Rezerve" />
+                        <div className="flex gap-4 mb-4">
+                          <LegendItem color="bg-green-100 border-green-400" label="Müsait (Tıkla)" />
                           <LegendItem color="bg-red-100 border-red-400" label="Dolu" />
                         </div>
-
-                        <ParkingGrid spots={selectedLot.spots} />
-
-                        <p className="text-xs text-center text-on-surface-variant">
-                          Boş alandaki park yerine tıklayarak rezervasyon yapabilirsiniz.
-                        </p>
+                        <ParkingGrid spots={selectedLot.spots} onSpotClick={() => setShowReservation(true)} />
+                        <p className="text-[11px] text-center text-outline mt-4">Yeşil alanlar boş park yerlerini temsil eder. Tıklayarak hızlıca rezervasyon oluşturabilirsiniz.</p>
                       </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl border border-outline-variant/20 shadow-sm p-12 flex flex-col items-center justify-center text-center">
-                  <MaterialIcon name="local_parking" className="text-6xl text-outline mb-4" />
-                  <p className="text-on-surface-variant">Sol taraftan bir otopark seçin.</p>
+                <div className="bg-white rounded-2xl border border-outline-variant/20 shadow-sm p-12 text-center">
+                  <MaterialIcon name="search" className="text-5xl text-outline mb-2" />
+                  <p className="text-on-surface-variant">Lütfen işlem yapmak için bir otopark seçin.</p>
                 </div>
               )}
-
-              {/* Logout */}
+              
               <div className="flex justify-end mt-4">
-                <button
-                  onClick={logout}
-                  className="flex items-center gap-2 text-sm text-outline hover:text-error transition-colors font-medium"
-                >
+                <button onClick={logout} className="flex items-center gap-2 text-sm text-outline hover:text-error transition-colors">
                   <MaterialIcon name="logout" className="text-xl" />
                   Çıkış Yap
                 </button>
@@ -558,29 +405,19 @@ export default function DriverDashboard() {
       </main>
       <Footer />
 
-      {/* ── Reservation Modal ────────────────────────────────────── */}
       {showReservation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowReservation(false)}
-          />
-          {/* Modal */}
-          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
-            {/* Close button */}
-            <button
-              onClick={() => setShowReservation(false)}
-              className="absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white/90 shadow hover:bg-white transition-colors"
-            >
-              <MaterialIcon name="close" className="text-xl text-on-surface" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowReservation(false)} />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowReservation(false)} className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-xl">
+              <MaterialIcon name="close" />
             </button>
-            <ReservationForm
-              onSuccess={() => {
-                setShowReservation(false);
-              }}
-              onError={(err) => console.error("Reservation error:", err)}
-            />
+            {selectedLot && (
+              <ReservationForm 
+                initialParkingLotId={selectedLot.id} 
+                onSuccess={() => { setShowReservation(false); fetchLots(); }} 
+              />
+            )}
           </div>
         </div>
       )}
