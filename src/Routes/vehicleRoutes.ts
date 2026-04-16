@@ -50,7 +50,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const userId = req.userId;
 
     const vehicles = await prisma.vehicle.findMany({
-      where: { ownerId: userId },
+      where: { ownerId: Number(userId) },
       select: {
         id: true,
         plate: true,
@@ -103,7 +103,7 @@ router.get('/', authMiddleware, async (req, res) => {
 router.get('/:vehicleId', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId;
-    const vehicleId = parseInt(req.params.vehicleId);
+    const vehicleId = parseInt(String(req.params.vehicleId));
 
     const vehicle = await prisma.vehicle.findUnique({
       where: { id: vehicleId },

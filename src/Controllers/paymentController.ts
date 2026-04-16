@@ -13,6 +13,41 @@ import { sendSuccess } from '../Utils/responseHelper';
 const parkingSessionService = new ParkingSessionService();
 const paymentService = new PaymentService();
 
+// ==================== PAYCELL PAYMENT ENDPOINT ====================
+
+/**
+ * Initiate Paycell payment for a reservation
+ * @route POST /api/payments/paycell
+ * @middleware authMiddleware
+ * @body { reservationId, msisdn }
+ * @returns Payment result with transaction details
+ */
+export const initiatePaycellPayment = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { reservationId, msisdn } = req.body;
+    const userId = req.user?.id as number;
+
+    const result = await paymentService.initiatePaycellPayment(
+      reservationId,
+      userId,
+      msisdn
+    );
+
+    sendSuccess(
+      res,
+      result,
+      'Paycell mobil ödeme başarıyla tamamlandı.',
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ==================== PARKING SESSION ENDPOINTS ====================
 
 /**

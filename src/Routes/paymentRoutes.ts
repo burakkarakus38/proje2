@@ -209,6 +209,50 @@ router.get('/', authMiddleware, paymentController.getUserSessions);
 
 /**
  * @swagger
+ * /api/payments/paycell:
+ *   post:
+ *     summary: Paycell Mobil Ödeme ile rezervasyon ödemesi yap
+ *     description: |
+ *       Turkcell Paycell Direct Carrier Billing (DCB) simülasyonu.
+ *       Rezervasyon ID ve GSM numarası ile mobil ödeme başlatır.
+ *       Başarılı ödeme sonrası rezervasyon durumu ACTIVE olur.
+ *     tags: [Payments]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reservationId, msisdn]
+ *             properties:
+ *               reservationId:
+ *                 type: integer
+ *                 description: Ödeme yapılacak rezervasyon ID
+ *               msisdn:
+ *                 type: string
+ *                 description: Turkcell GSM numarası (5XXXXXXXXX)
+ *     responses:
+ *       200:
+ *         description: Paycell ödeme başarıyla tamamlandı
+ *       402:
+ *         description: Paycell ödeme reddedildi (limit/hat sorunu)
+ *       403:
+ *         description: Rezervasyon kullanıcıya ait değil
+ *       404:
+ *         description: Rezervasyon bulunamadı
+ *       500:
+ *         description: Sunucu hatası
+ */
+router.post(
+  '/paycell',
+  authMiddleware,
+  paymentController.initiatePaycellPayment
+);
+
+/**
+ * @swagger
  * /api/payments/{paymentId}/process:
  *   post:
  *     summary: Ödemeyi işle (tamamla)

@@ -188,3 +188,46 @@ export const parkingSessionApi = {
       `/parking-sessions/vehicle/${vehicleId}/active`
     ),
 };
+
+// ── Payment API ────────────────────────────────────────────────────
+export interface PaycellPaymentResponse {
+  id: number;
+  reservationId: number;
+  userId: number;
+  amount: number;
+  paymentMethod: string;
+  status: string;
+  transactionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const paymentApi = {
+  /** Paycell Mobil Ödeme - Direct Carrier Billing */
+  initiatePaycell: (reservationId: number, msisdn: string) =>
+    api.post<ApiResponse<PaycellPaymentResponse>>("/payments/paycell", {
+      reservationId,
+      msisdn,
+    }),
+
+  /** Get payment details */
+  getPayment: (paymentId: number) =>
+    api.get<ApiResponse<PaycellPaymentResponse>>(`/payments/${paymentId}`),
+
+  /** Get user's payment history */
+  getUserPayments: (limit?: number, offset?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+    return api.get<ApiResponse<{ payments: PaycellPaymentResponse[]; total: number }>>(
+      `/payments?${params.toString()}`
+    );
+  },
+
+  /** Get reservation's payments */
+  getReservationPayments: (reservationId: number) =>
+    api.get<ApiResponse<PaycellPaymentResponse[]>>(
+      `/payments/reservations/${reservationId}/payments`
+    ),
+};
+

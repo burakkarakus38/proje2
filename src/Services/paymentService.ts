@@ -57,6 +57,84 @@ export class PaymentService {
   }
 
   /**
+   * Initiate Paycell payment for a reservation.
+   * Creates a PENDING payment if none exists, then processes it via PaycellService.
+   * On success, updates reservation status to ACTIVE.
+   */
+  async initiatePaycellPayment(
+    reservationId: number,
+    userId: number,
+    msisdn: string
+  ): Promise<PaymentResponse> {
+    try {
+      // 1. Get reservation
+      const reservation = await this.reservationRepository.findById(reservationId);
+      if (!reservation) throw new AppError('Rezervasyon bulunamadı.', 404);
+      if (reservation.userId !== userId) throw new AppError('Bu rezervasyon size ait değil.', 403);
+
+      // Check for already completed payment
+      const existingPayments = await this.paymentRepository.findByReservationId(reservationId);
+      const completedPayment = existingPayments.find((p: any) => p.status === 'COMPLETED');
+      if (completedPayment) {
+        throw new AppError('Bu rezervasyon için ödeme zaten tamamlanmış.', 400);
+      }
+
+      // 2. Find existing PENDING payment or create new one
+      let pendingPayment = existingPayments.find((p: any) => p.status === 'PENDING');
+      if (!pendingPayment) {
+        pendingPayment = await this.paymentRepository.create({
+          reservationId,
+          userId,
+          amount: reservation.totalPrice,
+          paymentMethod: 'PAYCELL',
+          status: 'PENDING',
+        });
+        Logger.info('Created PENDING payment for reservation', {
+          paymentId: pendingPayment.id,
+          reservationId,
+          amount: reservation.totalPrice,
+        });
+      }
+
+      // 3. Process via Paycell
+      const paycellResult = await paycellService.processPayment({
+        msisdn,
+        amount: pendingPayment.amount,
+        orderId: `ORD-${pendingPayment.id}`,
+        description: `ParkET Otopark Rezervasyonu #${reservationId}`,
+      });
+
+      // 4. Update payment status
+      const updatedPayment = await this.paymentRepository.update(pendingPayment.id, {
+        status: paycellResult.status === 'SUCCESS' ? 'COMPLETED' : 'FAILED',
+        transactionId: paycellResult.transactionId || `PCLL-FAIL-${Date.now()}`,
+        paymentMethod: 'PAYCELL',
+      });
+
+      if (paycellResult.status === 'FAILED') {
+        throw new AppError(`Paycell Ödeme Hatası: ${paycellResult.resultDescription}`, 402);
+      }
+
+      // 5. On success, update reservation status to ACTIVE
+      await this.reservationRepository.update(reservationId, {
+        status: 'ACTIVE',
+      });
+
+      Logger.info('Paycell payment completed, reservation activated', {
+        paymentId: updatedPayment.id,
+        reservationId,
+        transactionId: updatedPayment.transactionId,
+      });
+
+      return this.mapToResponse(updatedPayment);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      Logger.error('Error in initiatePaycellPayment', error as Error);
+      throw new AppError('Paycell ödeme başlatılırken hata oluştu.', 500);
+    }
+  }
+
+  /**
    * Process payment via Paycell Mobil Ödeme (Direct Carrier Billing)
    */
   async processPaycellPayment(

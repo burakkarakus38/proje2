@@ -138,7 +138,7 @@ export class AuthService {
       }
 
       // 2. Normalize role and validate vehicle fields for DRIVER
-      const normalizedRole: 'USER' | 'PROVIDER' | 'ADMIN' = (role && ['PROVIDER', 'ADMIN'].includes(role)) ? (role as 'PROVIDER' | 'ADMIN') : 'USER';
+      const normalizedRole: 'USER' | 'OPERATOR' | 'ADMIN' = (role && ['OPERATOR', 'ADMIN'].includes(role)) ? (role as 'OPERATOR' | 'ADMIN') : 'USER';
       
       if (normalizedRole === 'USER' && (!vehiclePlate || !vehicleBrand || !vehicleModel)) {
         throw new AppError(

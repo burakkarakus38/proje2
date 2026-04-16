@@ -33,10 +33,10 @@ export const recordExitSchema = z.object({
       .int('Park oturumu ID tam sayı olmalıdır.')
       .min(1, 'Geçerli bir park oturumu ID giriniz.'),
     paymentMethod: z
-      .enum(['CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'WALLET'] as const)
+      .enum(['CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'WALLET', 'PAYCELL'] as const)
       .refine(
-        (val) => ['CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'WALLET'].includes(val),
-        { message: 'Geçerli bir ödeme yöntemi seçiniz: CREDIT_CARD, DEBIT_CARD, BANK_TRANSFER, WALLET.' }
+        (val) => ['CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'WALLET', 'PAYCELL'].includes(val),
+        { message: 'Geçerli bir ödeme yöntemi seçiniz: CREDIT_CARD, DEBIT_CARD, BANK_TRANSFER, WALLET, PAYCELL.' }
       ),
   }),
 });

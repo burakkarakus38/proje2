@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { vehicleApi, parkingLotApi, reservationApi } from "@/lib/api";
 import { Vehicle, ParkingLot, CreateReservationPayload } from "@/types";
 import MaterialIcon from "@/components/ui/MaterialIcon";
@@ -14,6 +15,7 @@ interface ReservationFormProps {
 const DURATION_OPTIONS = [1, 2, 3, 4, 6, 8, 12, 24];
 
 export default function ReservationForm({ onSuccess, onError, initialParkingLotId }: ReservationFormProps) {
+  const router = useRouter();
   // 1. Initial State (Now + 1 hour for default start)
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
@@ -128,6 +130,8 @@ export default function ReservationForm({ onSuccess, onError, initialParkingLotI
         if (data?.success && data?.data) {
           setSuccess(true);
           onSuccess?.(data.data.id);
+          // Paycell ödeme sayfasına yönlendir
+          router.push(`/driver/payment?reservationId=${data.data.id}`);
         } else setError(data?.message || "Hata oluştu.");
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || "Hata oluştu.");
@@ -151,7 +155,7 @@ export default function ReservationForm({ onSuccess, onError, initialParkingLotI
         </div>
 
         {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-semibold border border-red-100 flex items-center gap-3 animate-in slide-in-from-top-2"><MaterialIcon name="warning" />{error}</div>}
-        {success && <div className="bg-green-50 text-green-600 p-4 rounded-2xl text-sm font-semibold border border-green-100 flex items-center gap-3 animate-in slide-in-from-top-2"><MaterialIcon name="verified" />Rezervasyon başarılır!</div>}
+        {success && <div className="bg-green-50 text-green-600 p-4 rounded-2xl text-sm font-semibold border border-green-100 flex items-center gap-3 animate-in slide-in-from-top-2"><MaterialIcon name="verified" />Rezervasyon başarılı! Ödeme sayfasına yönlendiriliyorsunuz...</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Main selections */}
